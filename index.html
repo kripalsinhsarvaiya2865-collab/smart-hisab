@@ -705,6 +705,15 @@ nav {
 }
 .cc-mode.on-spend { border-color: var(--red);   background: var(--red-dim);   color: var(--red); }
 .cc-mode.on-pay   { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.cs-stat { background: rgba(108,71,217,0.06); border: 1px solid rgba(108,71,217,0.22); border-radius: 10px; padding: 9px 10px; }
+.cs-stat .l { font-size: 10px; color: var(--text-dim); font-weight: 600; }
+.cs-stat .v { font-size: 15px; font-weight: 700; margin-top: 2px; }
+.cs-quick { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+.cs-quick button { padding:10px 4px; border-radius:10px; border:1.5px solid rgba(108,71,217,0.4); background:rgba(108,71,217,0.07); color:#6c47d9; font-family:inherit; font-size:11px; font-weight:700; cursor:pointer; touch-action:manipulation; }
+.cw-prev { font-size:12px; color:var(--text-mid); background:rgba(108,71,217,0.07); border-radius:8px; padding:9px 10px; margin:4px 0 12px; line-height:1.7; }
+.nav-btn span { font-size: 8.5px; letter-spacing: 0; }
+.cc-toggle { width:100%; padding:12px; margin-bottom:14px; border-radius:12px; border:1.5px solid rgba(108,71,217,0.45); background:rgba(108,71,217,0.07); color:#6c47d9; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; touch-action:manipulation; }
+.cc-toggle.open { background:#6c47d9; color:#fff; }
 </style>
 </head>
 <body>
@@ -919,6 +928,7 @@ nav {
             <option value="Income">આવક</option>
             <option value="Expense">જાવક</option>
             <option value="Transfer">ટ્રાન્સફર</option>
+            <option value="Card">💳 ક્રેડિટ કાર્ડ (બધી)</option>
           </select>
         </div>
         <div>
@@ -960,6 +970,8 @@ nav {
       </div>
       <button class="btn btn-blue" onclick="processTransfer()">🔄 &nbsp; ટ્રાન્સફર કરો</button>
     </div>
+    <button id="tfCcBtn" class="cc-toggle" onclick="toggleCcBox('tfCcWrap','tfCcBtn')">💳 Credit Card &nbsp;▼</button>
+    <div id="tfCcWrap" style="display:none">
     <!-- CREDIT CARD PAYMENT -->
     <div class="card">
       <div class="card-title"><div class="card-title-dot" style="background:#6c47d9"></div> 💳 Credit Card ભરપાઈ (Payment)</div>
@@ -986,6 +998,12 @@ nav {
       </div>
       <button class="btn btn-outline" onclick="cpFillFull()" style="padding:10px;margin-bottom:10px">પૂરી બાકી રકમ ભરો</button>
       <button class="btn btn-blue" onclick="processCardPay()" style="background:linear-gradient(135deg,#6c47d9,#8a63f2)">💳 &nbsp; ભરપાઈ કરો</button>
+    </div>
+    <!-- CARD TRANSFERS HISTORY -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#6c47d9"></div> 💳 કાર્ડ ટ્રાન્ઝેક્શન (ક્યાંથી ➔ ક્યાં)</div>
+      <div id="ccTfList"></div>
+    </div>
     </div>
     <!-- DELETED TRANSFERS / RECOVERY -->
     <div class="card">
@@ -1028,7 +1046,104 @@ nav {
       </div>
       <button class="btn btn-green" style="background:linear-gradient(135deg,var(--gold),#e6a820);color:#1a1505;box-shadow:0 4px 20px rgba(255,193,77,0.25)" onclick="addLoan()">✓ &nbsp; સેવ કરો</button>
     </div>
+    <button id="loanCcBtn" class="cc-toggle" onclick="toggleCcBox('loanCcWrap','loanCcBtn')">💳 Credit Card &nbsp;▼</button>
+    <div id="loanCcWrap" style="display:none">
+    <!-- CREDIT CARD CASH WITHDRAWAL (LOAN) -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#6c47d9"></div> 💳 Credit Card માંથી લોન / કેશ ઉપાડ</div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">કયું કાર્ડ</label>
+          <select id="cwCard" onchange="cwUpdateInfo()"></select>
+        </div>
+        <div>
+          <label class="field-label">કઈ બેંકમાં જમા</label>
+          <select id="cwBank"></select>
+        </div>
+      </div>
+      <div id="cwInfo" style="font-size:12px;color:var(--text-mid);margin:2px 0 10px"></div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">ઉપાડની રકમ (₹)</label>
+          <input type="number" id="cwAmt" placeholder="0.00" oninput="cwUpdateInfo()">
+        </div>
+        <div>
+          <label class="field-label">તારીખ</label>
+          <input type="date" id="cwDate">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label class="field-label">ચાર્જ કેવી રીતે</label>
+          <select id="cwMode" onchange="cwUpdateInfo()">
+            <option value="pct">ટકા (%)</option>
+            <option value="flat">ફિક્સ રકમ (₹)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" id="cwChgLbl">ચાર્જ (%)</label>
+          <input type="number" id="cwChg" placeholder="જેમ કે 2.5" oninput="cwUpdateInfo()">
+        </div>
+      </div>
+      <div class="form-row full" id="cwMinRow">
+        <div>
+          <label class="field-label">ઓછામાં ઓછો ચાર્જ ₹ (વૈકલ્પિક)</label>
+          <input type="number" id="cwMin" placeholder="જેમ કે 500" oninput="cwUpdateInfo()">
+        </div>
+      </div>
+      <div class="cw-prev" id="cwPreview">રકમ દાખલ કરો.</div>
+      <button class="btn btn-blue" onclick="processCardCash()" style="background:linear-gradient(135deg,#6c47d9,#8a63f2)">💵 &nbsp; કેશ ઉપાડ સેવ કરો</button>
+    </div>
+    <div id="ccLoanList"></div>
+    </div>
     <div id="loanTablesInScreen"></div>
+  </section>
+
+  <!-- CREDIT CARD SECTION -->
+  <section id="cardSec">
+    <div class="sec-head">
+      <div class="sec-head-icon" style="background:rgba(108,71,217,0.12)">💳</div>
+      ક્રેડિટ કાર્ડ
+    </div>
+    <div class="cs-quick">
+      <button onclick="showSec('entry')">🛍 &nbsp;ખર્ચ એન્ટ્રી</button>
+      <button onclick="showSec('loan')">💵 &nbsp;કેશ ઉપાડ</button>
+      <button onclick="showSec('transfer')">💳 &nbsp;ભરપાઈ</button>
+    </div>
+    <div id="csCards"></div>
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px">
+        <div>
+          <label class="field-label">મહિનો</label>
+          <select id="csMonth" onchange="periodApply('cs')"></select>
+        </div>
+        <div>
+          <label class="field-label">વર્ષ</label>
+          <select id="csYear" onchange="periodApply('cs')"></select>
+        </div>
+      </div>
+      <input type="hidden" id="csFrom"><input type="hidden" id="csTo">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+        <div>
+          <label class="field-label">કાર્ડ</label>
+          <select id="csCard" onchange="renderCardSec()" style="padding:9px 12px;font-size:12px"></select>
+        </div>
+        <div>
+          <label class="field-label">પ્રકાર</label>
+          <select id="csKind" onchange="renderCardSec()" style="padding:9px 12px;font-size:12px">
+            <option value="">બધા</option>
+            <option value="spend">🛍 ખરીદી / ખર્ચ</option>
+            <option value="cash">💵 કેશ ઉપાડ</option>
+            <option value="charge">🧾 ચાર્જ</option>
+            <option value="pay">💳 ભરપાઈ</option>
+            <option value="refund">↩️ રિફંડ</option>
+            <option value="out">⇄ કાર્ડમાંથી ટ્રાન્સફર</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="csStats"></div>
+    <div class="card" id="csListCard"><div id="csList"></div></div>
   </section>
 
   <!-- REPORTS SECTION -->
@@ -1139,6 +1254,9 @@ nav {
   </button>
   <button class="nav-btn" onclick="showSec('transfer')" id="btn-transfer">
     <i class="las la-sync"></i><span>ટ્રાન્સફર</span>
+  </button>
+  <button class="nav-btn" onclick="showSec('card')" id="btn-card">
+    <i class="las la-credit-card"></i><span>કાર્ડ</span>
   </button>
   <button class="nav-btn" onclick="showSec('loan')" id="btn-loan">
     <i class="las la-hand-holding-usd"></i><span>લોન</span>
@@ -1256,6 +1374,7 @@ function save() {
   database.ref('users/' + myMobile).set(db);
   renderBanks();
   renderLoanSummary();
+  if(typeof renderCcExtras==='function') renderCcExtras();
 }
 
 // BANKS - DYNAMIC
@@ -1297,6 +1416,13 @@ function refreshAllBankDropdowns() {
   const cpB=document.getElementById('cpBank');
   if(cpB){ const cur=cpB.value; cpB.innerHTML=getBankOptions(cur); }
   if(typeof cpUpdateInfo==='function') cpUpdateInfo();
+  const cwC=document.getElementById('cwCard');
+  if(cwC){ const cur=cwC.value; cwC.innerHTML=ccCards().map(c=>`<option${c.name===cur?' selected':''}>${escH(c.name)}</option>`).join(''); }
+  const cwB=document.getElementById('cwBank');
+  if(cwB){ const cur=cwB.value; cwB.innerHTML=getBankOptions(cur); }
+  const csC=document.getElementById('csCard');
+  if(csC){ const cur=csC.value; csC.innerHTML='<option value="">બધા કાર્ડ</option>'+ccCards().map(c=>`<option${c.name===cur?' selected':''}>${escH(c.name)}</option>`).join(''); }
+  if(typeof cwUpdateInfo==='function') cwUpdateInfo();
   ['tfFrom','tfTo'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const cur=el.value; el.innerHTML=getBankAndCardOptions(cur);
@@ -1493,7 +1619,7 @@ function renderAllEntries() {
   let entries = [...db.entries];
   if(from) entries = entries.filter(e => e.date >= from);
   if(to)   entries = entries.filter(e => e.date <= to);
-  if(typeFilter) entries = entries.filter(e => e.type === typeFilter);
+  if(typeFilter) entries = entries.filter(e => typeFilter==='Card' ? isCardEntry(e) : e.type === typeFilter);
   if(catFilter)  entries = entries.filter(e => e.cat === catFilter);
 
   // Sort by date descending (latest first)
@@ -1505,7 +1631,7 @@ function renderAllEntries() {
     let baseEntries = [...db.entries];
     if(from) baseEntries = baseEntries.filter(e => e.date >= from);
     if(to)   baseEntries = baseEntries.filter(e => e.date <= to);
-    if(typeFilter) baseEntries = baseEntries.filter(e => e.type === typeFilter);
+    if(typeFilter) baseEntries = baseEntries.filter(e => typeFilter==='Card' ? isCardEntry(e) : e.type === typeFilter);
     const allCats = [...new Set(baseEntries.map(e=>e.cat))].sort();
     const curCat = catFilterEl.value;
     catFilterEl.innerHTML = '<option value="">બધી</option>' + allCats.map(c=>`<option${c===curCat?' selected':''}>${c}</option>`).join('');
@@ -1531,13 +1657,14 @@ function renderAllEntries() {
     const sign = e.type==='Income' ? '+' : (e.type==='Transfer' ? '⇄' : '-');
     const isTransfer = e.type === 'Transfer';
     // For transfer: cat = "Transfer: HDFC➔SBI" - extract bank names
-    let metaLine = e.date + ' &nbsp;·&nbsp; ' + (e.bank!=='Transfer'?e.bank:'') + ' &nbsp;·&nbsp; ' + e.note;
+    let metaLine = e.date + ' &nbsp;·&nbsp; ' + (e.bank!=='Transfer'?((ccByName(e.bank)?'💳 ':'')+e.bank):'') + ' &nbsp;·&nbsp; ' + e.note;
     let catLine = e.cat;
     if(isTransfer) {
       // cat format: "Transfer: FROM➔TO"
       const parts = e.cat.replace('Transfer: ','');
-      catLine = e.isCardPay ? '💳 કાર્ડ ભરપાઈ' : '🔄 ટ્રાન્સફર';
+      catLine = tfLabel(e);
       metaLine = e.date + ' &nbsp;·&nbsp; <span style="color:var(--blue);font-weight:600">' + parts + '</span>';
+      if(e.isCardCash){ const chE = db.entries.find(x=>x.isCardCharge && x.cashId===e.id); if(chE) metaLine += ' &nbsp;·&nbsp; <span style="color:var(--red)">ચાર્જ ₹' + fmt(chE.amt) + '</span>'; }
     }
     const editBtn = isTransfer ? '' : `<button class="entry-del" style="color:var(--blue);font-size:15px" onclick="editEntry(${e.id})">✏️</button>`;
     return `<div class="entry-item">
@@ -1611,12 +1738,18 @@ function deleteEntry(id) {
   const i = db.entries.findIndex(e=>e.id===id);
   if(i!==-1) {
     const e = db.entries[i];
+    let _linkedCharge = null;
     if(e.type==='Transfer') {
       // ટ્રાન્સફર reverse: from પાછું +, to પાછું -
       const {f,t} = tfParts(e);
       if(tfExists(f)) applyBankDelta(f, +e.amt);
       if(tfExists(t)) applyBankDelta(t, -e.amt);
-      tfTrash().unshift({...e, tfFrom:f, tfTo:t, deletedAt:Date.now()});
+      // 💵 કેશ ઉપાડનો ચાર્જ પણ સાથે reverse
+      if(e.isCardCash){
+        _linkedCharge = db.entries.find(x=>x.isCardCharge && x.cashId===e.id) || null;
+        if(_linkedCharge && tfExists(_linkedCharge.bank)) applyBankDelta(_linkedCharge.bank, +_linkedCharge.amt);
+      }
+      tfTrash().unshift({...e, tfFrom:f, tfTo:t, deletedAt:Date.now(), linkedCharge:_linkedCharge});
     } else if(e.bank!=='Transfer' && !e.isLastMon) {
       // Bank/Card balance reverse (LastMon ne skip)
       applyBankDelta(e.bank, e.type==='Income' ? -e.amt : e.amt);
@@ -1624,6 +1757,7 @@ function deleteEntry(id) {
     // Loan rem reverse
     _loanReverse(e);
     db.entries.splice(i,1);
+    if(_linkedCharge){ const ci = db.entries.indexOf(_linkedCharge); if(ci!==-1) db.entries.splice(ci,1); }
     save(); renderAllEntries(); renderDeletedTransfers();
     toast(e.type==='Transfer' ? 'ટ્રાન્સફર ડીલીટ — રિકવરીમાં સચવાયું' : 'ડીલીટ થઈ ગઈ', 'var(--red)');
   }
@@ -2033,7 +2167,7 @@ function ccDetailHTML(data, f, t) {
       return `<tr style="background:${i%2?'#faf8ff':'#fff'}">
         <td style="${td}font-size:11px;color:#666;white-space:nowrap">${x.e.date}</td>
         <td style="${td}font-size:12px">${escH(x.from)} ➔ ${escH(x.to)}</td>
-        <td style="${td}font-size:11px;color:#666">${toCard?'કાર્ડ ભરપાઈ':'કાર્ડમાંથી ઉપાડ'}</td>
+        <td style="${td}font-size:11px;color:#666">${toCard?'કાર્ડ ભરપાઈ':(x.e.isCardCash?'💵 કેશ ઉપાડ':'કાર્ડમાંથી ટ્રાન્સફર')}</td>
         <td style="${td}text-align:right;font-weight:700;font-size:12px;color:${toCard?'#00936e':'#d63350'}">${toCard?'+':'-'}₹${fmt(x.e.amt)}</td>
       </tr>`;
     }).join('');
@@ -2041,6 +2175,7 @@ function ccDetailHTML(data, f, t) {
       <div style="font-size:14px;font-weight:700;color:${P};margin-bottom:8px">💳 ${escH(c.name)}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
         ${stat('આ સમયગાળાનો ખર્ચ', d.spent, '#d63350')}
+        ${stat('કેશ ઉપાડ', d.cash, '#c4820a')}
         ${stat('ભરપાઈ (બેંકમાંથી)', d.paid, '#00936e')}
         ${stat('હાલનું વપરાયેલ', c.used||0, '#c4820a')}
         ${stat('બાકી લિમિટ', avail, avail>=0?P:'#d63350')}
@@ -2875,9 +3010,9 @@ function renderDeletedTransfers(){
     const {f,t} = tfParts(e);
     const when = e.deletedAt ? new Date(e.deletedAt).toLocaleString('gu-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
     return `<div class="entry-item" style="opacity:.95">
-      <div class="entry-icon transfer">${e.isCardPay?'💳':'⇄'}</div>
+      <div class="entry-icon transfer">${e.isCardPay?'💳':(e.isCardCash?'💵':'⇄')}</div>
       <div class="entry-info">
-        <div class="entry-cat">${e.isCardPay?'💳 કાર્ડ ભરપાઈ':'🔄 ટ્રાન્સફર'} · ₹${fmt(e.amt)}</div>
+        <div class="entry-cat">${tfLabel(e)} · ₹${fmt(e.amt)}${e.linkedCharge?' (+ ચાર્જ ₹'+fmt(e.linkedCharge.amt)+')':''}</div>
         <div class="entry-meta"><span style="color:var(--blue);font-weight:600">${escH(f)}➔${escH(t)}</span> &nbsp;·&nbsp; તારીખ ${escH(e.date)}</div>
         <div class="entry-meta" style="color:var(--red)">🗑 ડીલીટ થયું: ${escH(when)}</div>
       </div>
@@ -2897,14 +3032,19 @@ function restoreTransfer(id){
   const {f,t} = tfParts(e);
   if(!tfExists(f) || !tfExists(t)){ toast('આ બેંક / કાર્ડ હવે નથી, પાછું ન લાવી શકાય','var(--red)'); return; }
   const fc = ccByName(f), tc = ccByName(t);
-  if(fc && e.amt > ccAvail(fc)){ toast('લિમિટ પૂરી! બાકી લિમિટ ₹'+fmt(ccAvail(fc)),'var(--red)'); return; }
+  const _need = e.amt + (e.linkedCharge ? e.linkedCharge.amt : 0);
+  if(fc && _need > ccAvail(fc)){ toast('લિમિટ પૂરી! બાકી લિમિટ ₹'+fmt(ccAvail(fc)),'var(--red)'); return; }
   if(tc && e.amt > (tc.used||0)){ toast('કાર્ડની બાકી રકમ માત્ર ₹'+fmt(tc.used||0)+' છે','var(--red)'); return; }
   if(!confirm('ટ્રાન્સફર પાછું લાવવું? બેંક / કાર્ડમાં ફરી રકમ લાગુ થશે.')) return;
   applyBankDelta(f, -e.amt);
   applyBankDelta(t, +e.amt);
-  const entry = {...e}; delete entry.deletedAt;
+  const entry = {...e}; delete entry.deletedAt; delete entry.linkedCharge;
   entry.tfFrom = f; entry.tfTo = t;
   db.entries.unshift(entry);
+  if(e.linkedCharge && tfExists(e.linkedCharge.bank)){
+    applyBankDelta(e.linkedCharge.bank, -e.linkedCharge.amt);
+    db.entries.unshift({...e.linkedCharge});
+  }
   arr.splice(i,1);
   save(); renderDeletedTransfers(); renderAllEntries();
   toast('✓ ટ્રાન્સફર પાછું આવ્યું','var(--green)');
@@ -2922,7 +3062,8 @@ function purgeTransfer(id){
 const GU_MONTHS_FULL = ['જાન્યુઆરી','ફેબ્રુઆરી','માર્ચ','એપ્રિલ','મે','જૂન','જુલાઈ','ઑગસ્ટ','સપ્ટેમ્બર','ઑક્ટોબર','નવેમ્બર','ડિસેમ્બર'];
 const PERIOD_CFG = {
   list:{from:'listFrom', to:'listTo',     after:()=>renderAllEntries()},
-  rep: {from:'reportFrom', to:'reportTo', after:()=>generateReport()}
+  rep: {from:'reportFrom', to:'reportTo', after:()=>generateReport()},
+  cs:  {from:'csFrom', to:'csTo', after:()=>renderCardSec()}
 };
 function periodYears(k){
   const ys = document.getElementById(k+'Year'); if(!ys) return;
@@ -2987,8 +3128,262 @@ function cleanupOldReminders(){
   }catch(e){}
 }
 
+// ═══════════════════════════════════════════════
+// 💵 CREDIT CARD કેશ ઉપાડ (લોન) + 💳 કાર્ડ સેક્શન
+// ═══════════════════════════════════════════════
+function isCardEntry(e){
+  if(e.type==='Transfer'){
+    if(e.isCardPay || e.isCardCash) return true;
+    const {f,t} = tfParts(e);
+    return !!ccByName(f) || !!ccByName(t);
+  }
+  return !!ccByName(e.bank);
+}
+function tfLabel(e){
+  if(e.isCardCash) return '💵 કાર્ડ કેશ ઉપાડ';
+  if(e.isCardPay)  return '💳 કાર્ડ ભરપાઈ';
+  return '🔄 ટ્રાન્સફર';
+}
+function cwCalc(){
+  const g = id => { const el=document.getElementById(id); return el ? (parseFloat(el.value)||0) : 0; };
+  const a = g('cwAmt'), v = g('cwChg'), mn = g('cwMin');
+  const modeEl = document.getElementById('cwMode');
+  const mode = modeEl ? modeEl.value : 'pct';
+  let ch = mode==='pct' ? a*v/100 : v;
+  if(mode==='pct' && a>0 && mn>ch) ch = mn;
+  ch = Math.round(ch*100)/100;
+  return {a, ch, total: a+ch, mode, v, mn};
+}
+function cwUpdateInfo(){
+  const info = document.getElementById('cwInfo'); if(!info) return;
+  const modeEl = document.getElementById('cwMode');
+  const lbl = document.getElementById('cwChgLbl'), minRow = document.getElementById('cwMinRow'), chg = document.getElementById('cwChg');
+  if(modeEl){
+    const pct = modeEl.value==='pct';
+    if(lbl) lbl.textContent = pct ? 'ચાર્જ (%)' : 'ચાર્જ (₹ ફિક્સ)';
+    if(chg) chg.placeholder = pct ? 'જેમ કે 2.5' : 'જેમ કે 500';
+    if(minRow) minRow.style.display = pct ? '' : 'none';
+  }
+  const sel = document.getElementById('cwCard');
+  const c = sel && sel.value ? ccByName(sel.value) : null;
+  info.innerHTML = c
+    ? `વપરાયેલ: <b style="color:var(--red)">₹${fmt(c.used||0)}</b> &nbsp;·&nbsp; બાકી લિમિટ: <b style="color:#6c47d9">₹${fmt(ccAvail(c))}</b>`
+    : 'પહેલા સેટિંગ્સમાં Credit Card ઉમેરો.';
+  const pv = document.getElementById('cwPreview'); if(!pv) return;
+  const r = cwCalc();
+  if(!r.a){ pv.innerHTML = 'રકમ દાખલ કરો — ચાર્જ અને કાર્ડ પરનો કુલ બોજ અહીં દેખાશે.'; return; }
+  const over = c && r.total > ccAvail(c);
+  pv.innerHTML = `બેંકમાં જમા થશે: <b style="color:var(--green)">₹${fmt(r.a)}</b><br>
+    ચાર્જ: <b style="color:var(--red)">₹${fmt(r.ch)}</b>${r.a>0?` <span style="color:var(--text-dim)">(${(r.ch/r.a*100).toFixed(2)}%)</span>`:''}<br>
+    કાર્ડ પર કુલ વપરાશે: <b style="color:#6c47d9">₹${fmt(r.total)}</b>${over?'<br><b style="color:var(--red)">⚠ લિમિટ કરતાં વધુ!</b>':''}`;
+}
+function processCardCash(){
+  const cn = document.getElementById('cwCard').value;
+  const bn = document.getElementById('cwBank').value;
+  const d  = document.getElementById('cwDate').value || new Date().toISOString().split('T')[0];
+  const c = ccByName(cn);
+  if(!c){ toast('પહેલા Credit Card ઉમેરો','var(--red)'); return; }
+  if(!bn){ toast('બેંક પસંદ કરો','var(--red)'); return; }
+  const r = cwCalc();
+  if(!r.a || r.a<=0){ toast('રકમ દાખલ કરો','var(--red)'); return; }
+  if(r.total > ccAvail(c)){ toast('લિમિટ પૂરી! બાકી લિમિટ ₹'+fmt(ccAvail(c)),'var(--red)'); return; }
+  const id = Date.now();
+  applyBankDelta(cn, -r.a);   // કાર્ડ used વધ્યું
+  applyBankDelta(bn, +r.a);   // બેંકમાં પૈસા જમા
+  // ટ્રાન્સફર એન્ટ્રી (કાર્ડ ➔ બેંક)
+  db.entries.unshift({id, date:d, cat:`Transfer: ${cn}➔${bn}`, note:'કેશ ઉપાડ', bank:'Transfer', amt:r.a, type:'Transfer', tfFrom:cn, tfTo:bn, isCardCash:true});
+  // ચાર્જ = કાર્ડ પરનો જાવક (ખર્ચ)
+  if(r.ch>0){
+    applyBankDelta(cn, -r.ch);
+    db.entries.unshift({id:id+1, date:d, cat:'કાર્ડ ચાર્જ (કેશ ઉપાડ)', note:`₹${fmt(r.a)} કેશ ઉપાડનો ચાર્જ`, bank:cn, amt:r.ch, type:'Expense', isCardCharge:true, cashId:id});
+  }
+  db.cwPref = {mode:r.mode, val:r.v, min:r.mn};
+  save();
+  document.getElementById('cwAmt').value='';
+  cwUpdateInfo();
+  toast(`✓ ₹${fmt(r.a)} કેશ ઉપાડ સેવ (ચાર્જ ₹${fmt(r.ch)})`, '#6c47d9');
+}
+
+// લોન સેક્શનમાં: કાર્ડમાંથી લીધેલી લોન / કેશ ઉપાડની યાદી
+function renderCcLoanList(){
+  const el = document.getElementById('ccLoanList'); if(!el) return;
+  const rows = db.entries.filter(e=>e.isCardCash).sort((a,b)=>b.date.localeCompare(a.date) || (b.id-a.id));
+  if(!rows.length){ el.innerHTML=''; return; }
+  let tA=0, tC=0;
+  const items = rows.map(e=>{
+    const {f,t} = tfParts(e);
+    const chE = db.entries.find(x=>x.isCardCharge && x.cashId===e.id);
+    const ch = chE ? chE.amt : 0;
+    tA += e.amt; tC += ch;
+    return `<div class="loan-person-card">
+      <div style="min-width:0">
+        <div class="loan-person-name">💳 ${escH(f)} ➔ ${escH(t)}</div>
+        <div style="font-size:11px;color:var(--text-dim)">${escH(e.date)} &nbsp;·&nbsp; ચાર્જ <span style="color:var(--red);font-weight:700">₹${fmt(ch)}</span>${e.amt>0?' ('+(ch/e.amt*100).toFixed(2)+'%)':''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="loan-person-amt" style="color:#6c47d9">₹${fmt(e.amt)}</div>
+        <div style="font-size:10px;color:var(--text-dim)">કુલ ₹${fmt(e.amt+ch)}</div>
+        <button class="entry-del" onclick="deleteEntry(${e.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="card"><div class="card-title"><div class="card-title-dot" style="background:#6c47d9"></div> 💳 કાર્ડમાંથી લીધેલી લોન (કેશ ઉપાડ)</div>${items}
+    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);margin-top:4px;font-size:12px">
+      <span style="color:var(--text-dim)">કુલ ઉપાડ</span><b style="color:#6c47d9">₹${fmt(tA)}</b>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding-top:4px;font-size:12px">
+      <span style="color:var(--text-dim)">કુલ ચાર્જ</span><b style="color:var(--red)">₹${fmt(tC)}</b>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding-top:4px;font-size:13px">
+      <span style="color:var(--text-dim)">કાર્ડ પર કુલ બોજ</span><b style="color:var(--text)">₹${fmt(tA+tC)}</b>
+    </div></div>`;
+}
+
+// ટ્રાન્સફર સેક્શનમાં: કાર્ડ સંબંધિત ટ્રાન્સફર (ક્યાંથી ➔ ક્યાં, કેટલા)
+function renderCardTransfers(){
+  const el = document.getElementById('ccTfList'); if(!el) return;
+  const rows = db.entries.filter(e=>e.type==='Transfer' && isCardEntry(e)).sort((a,b)=>b.date.localeCompare(a.date) || (b.id-a.id));
+  if(!rows.length){ el.innerHTML='<div style="font-size:12px;color:var(--text-dim);padding:6px 0">હજી કોઈ કાર્ડ ટ્રાન્સફર નથી.</div>'; return; }
+  const LIM = 25;
+  let tOut=0, tIn=0;
+  rows.forEach(e=>{ const {f,t}=tfParts(e); if(ccByName(f)) tOut+=e.amt; if(ccByName(t)) tIn+=e.amt; });
+  el.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px">
+      <div class="cs-stat" style="flex:1"><div class="l">કાર્ડમાંથી ઉપડ્યા</div><div class="v" style="color:var(--red)">₹${fmt(tOut)}</div></div>
+      <div class="cs-stat" style="flex:1"><div class="l">કાર્ડમાં ભરાયા</div><div class="v" style="color:var(--green)">₹${fmt(tIn)}</div></div>
+    </div>` + rows.slice(0,LIM).map(e=>{
+    const {f,t} = tfParts(e);
+    const chE = e.isCardCash ? db.entries.find(x=>x.isCardCharge && x.cashId===e.id) : null;
+    const fromCard = !!ccByName(f);
+    return `<div class="entry-item">
+      <div class="entry-icon transfer">${e.isCardCash?'💵':(e.isCardPay?'💳':'⇄')}</div>
+      <div class="entry-info">
+        <div class="entry-cat">${tfLabel(e)}</div>
+        <div class="entry-meta"><span style="color:var(--blue);font-weight:600">${escH(f)} ➔ ${escH(t)}</span> &nbsp;·&nbsp; ${escH(e.date)}${chE?' &nbsp;·&nbsp; <span style="color:var(--red)">ચાર્જ ₹'+fmt(chE.amt)+'</span>':''}</div>
+      </div>
+      <div class="entry-right">
+        <div class="entry-amt ${fromCard?'expense':'income'}">${fromCard?'-':'+'}₹${fmt(e.amt)}</div>
+        <button class="entry-del" onclick="deleteEntry(${e.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('') + (rows.length>LIM ? `<div style="font-size:11px;color:var(--text-dim);text-align:center;padding-top:8px">છેલ્લા ${LIM} બતાવ્યા — બધા 💳 કાર્ડ સેક્શનમાં જુઓ</div>` : '');
+}
+
+// 💳 કાર્ડ સેક્શન — બધા કાર્ડ ટ્રાન્ઝેક્શન એક જગ્યાએ
+function ccKind(e, cn){
+  if(e.type==='Transfer'){
+    const {f,t} = tfParts(e);
+    if(t===cn) return 'pay';
+    if(f===cn) return e.isCardCash ? 'cash' : 'out';
+    return null;
+  }
+  if(e.bank!==cn) return null;
+  if(e.isCardCharge) return 'charge';
+  return e.type==='Income' ? 'refund' : 'spend';
+}
+const CC_KIND = {
+  spend: {ico:'🛍', lbl:'ખરીદી / ખર્ચ',          plus:true,  cls:'expense'},
+  cash:  {ico:'💵', lbl:'કેશ ઉપાડ',              plus:true,  cls:'loan'},
+  charge:{ico:'🧾', lbl:'ચાર્જ',                  plus:true,  cls:'expense'},
+  out:   {ico:'⇄',  lbl:'કાર્ડમાંથી ટ્રાન્સફર',  plus:true,  cls:'transfer'},
+  pay:   {ico:'💳', lbl:'ભરપાઈ',                 plus:false, cls:'income'},
+  refund:{ico:'↩️', lbl:'રિફંડ / આવક',            plus:false, cls:'income'}
+};
+function renderCardSec(){
+  const cardsEl = document.getElementById('csCards');
+  const statsEl = document.getElementById('csStats');
+  const listEl  = document.getElementById('csList');
+  if(!cardsEl || !statsEl || !listEl) return;
+  const cards = ccCards();
+  if(!cards.length){
+    cardsEl.innerHTML = '<div class="card"><div style="font-size:13px;color:var(--text-mid)">હજી કોઈ Credit Card નથી. સેટિંગ્સમાંથી કાર્ડ ઉમેરો.</div></div>';
+    statsEl.innerHTML=''; listEl.innerHTML=''; return;
+  }
+  // કાર્ડ સારાંશ
+  cardsEl.innerHTML = cards.map(c=>{
+    const avail = ccAvail(c);
+    const pct = c.limit>0 ? Math.min(100, Math.round((c.used||0)/c.limit*100)) : 0;
+    return `<div class="card" style="border-color:rgba(108,71,217,0.35)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:700;color:#6c47d9">💳 ${escH(c.name)}</span>
+        <span style="font-size:11px;color:var(--text-dim)">લિમિટ ₹${fmt(c.limit||0)}</span>
+      </div>
+      <div class="cc-bar"><i style="width:${pct}%"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:8px">
+        <span>વપરાયેલ <b style="color:var(--red)">₹${fmt(c.used||0)}</b></span>
+        <span>બાકી <b style="color:${avail>=0?'#6c47d9':'var(--red)'}">₹${fmt(avail)}</b></span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const from = document.getElementById('csFrom').value, to = document.getElementById('csTo').value;
+  const cardF = document.getElementById('csCard').value;
+  const kindF = document.getElementById('csKind').value;
+  const useCards = cardF ? cards.filter(c=>c.name===cardF) : cards;
+
+  let rows = [];
+  db.entries.forEach(e=>{
+    if(from && e.date<from) return;
+    if(to && e.date>to) return;
+    useCards.forEach(c=>{
+      const k = ccKind(e, c.name);
+      if(k) rows.push({e, k, card:c.name});
+    });
+  });
+  const sum = k => rows.filter(r=>r.k===k).reduce((s,r)=>s+r.e.amt,0);
+  const S = {spend:sum('spend'), cash:sum('cash')+sum('out'), charge:sum('charge'), pay:sum('pay'), refund:sum('refund')};
+  const statBox = (l,v,col) => `<div class="cs-stat"><div class="l">${l}</div><div class="v" style="color:${col}">₹${fmt(v)}</div></div>`;
+  statsEl.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+    ${statBox('🛍 ખરીદી / ખર્ચ', S.spend, 'var(--red)')}
+    ${statBox('💵 કેશ ઉપાડ', S.cash, '#c4820a')}
+    ${statBox('🧾 ચાર્જ', S.charge, 'var(--red)')}
+    ${statBox('💳 ભરપાઈ', S.pay, 'var(--green)')}
+  </div>`;
+
+  if(kindF) rows = rows.filter(r=>r.k===kindF);
+  rows.sort((a,b)=>b.e.date.localeCompare(a.e.date) || (b.e.id-a.e.id));
+  if(!rows.length){ listEl.innerHTML='<p style="color:var(--text-dim);text-align:center;padding:20px">કોઈ કાર્ડ એન્ટ્રી નથી</p>'; return; }
+  const multi = useCards.length>1;
+  listEl.innerHTML = `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">${rows.length} એન્ટ્રી</div>` + rows.map(r=>{
+    const e = r.e, K = CC_KIND[r.k];
+    let title = K.lbl, sub = escH(e.date) + (multi?' &nbsp;·&nbsp; 💳 '+escH(r.card):'');
+    if(r.k==='spend'||r.k==='refund'){ title = K.ico==='🛍' ? escH(e.cat||K.lbl) : (K.lbl+' · '+escH(e.cat||'')); if(e.note && e.note!=='-') sub += ' &nbsp;·&nbsp; '+escH(e.note); }
+    else if(r.k==='cash'||r.k==='out'||r.k==='pay'){ const {f,t}=tfParts(e); sub += ' &nbsp;·&nbsp; <span style="color:var(--blue);font-weight:600">'+escH(f)+' ➔ '+escH(t)+'</span>'; }
+    else if(r.k==='charge'){ sub += ' &nbsp;·&nbsp; '+escH(e.note||''); }
+    const kindTag = (r.k==='spend') ? '' : `<span style="font-size:10px;font-weight:700;color:#6c47d9;background:rgba(108,71,217,0.1);border-radius:6px;padding:1px 6px;margin-right:6px">${K.lbl}</span>`;
+    const delId = e.id;
+    return `<div class="entry-item">
+      <div class="entry-icon ${K.cls}">${K.ico}</div>
+      <div class="entry-info">
+        <div class="entry-cat">${kindTag}${r.k==='spend'?title:''}${(r.k==='refund')?escH(e.cat||''):''}</div>
+        <div class="entry-meta">${sub}</div>
+      </div>
+      <div class="entry-right">
+        <div class="entry-amt ${K.plus?'expense':'income'}">${K.plus?'+':'−'}₹${fmt(e.amt)}</div>
+        <button class="entry-del" onclick="deleteEntry(${delId})">🗑</button>
+      </div>
+    </div>`;
+  }).join('') + `<div style="font-size:10px;color:var(--text-dim);margin-top:10px;line-height:1.6">લાલ (+) = કાર્ડ પર વપરાશ વધ્યો · લીલો (−) = કાર્ડ ભરાયું / રિફંડ</div>`;
+}
+function renderCcExtras(){
+  renderCcLoanList(); renderCardTransfers(); renderCardSec();
+}
+
+function toggleCcBox(wid, bid){
+  const w=document.getElementById(wid), b=document.getElementById(bid); if(!w||!b) return;
+  const open = w.style.display==='none';
+  w.style.display = open ? 'block' : 'none';
+  b.classList.toggle('open', open);
+  b.innerHTML = open ? '💳 Credit Card &nbsp;▲ છુપાવો' : '💳 Credit Card &nbsp;▼';
+}
+function ccBoxesReset(){
+  [['loanCcWrap','loanCcBtn'],['tfCcWrap','tfCcBtn']].forEach(([w,b])=>{
+    const we=document.getElementById(w), be=document.getElementById(b); if(!we||!be) return;
+    we.style.display='none'; be.classList.remove('open'); be.innerHTML='💳 Credit Card &nbsp;▼';
+  });
+}
 // NAV
 function showSec(id) {
+  ccBoxesReset();
   document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
   document.getElementById(id+'Sec').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -2998,7 +3393,9 @@ function showSec(id) {
   if(id==='reports') { periodYears('rep'); periodApply('rep', true); renderCatFilterChips(); }
   if(id==='settings') renderSettings();
   if(id==='loan') renderLoanSummary();
-  if(id==='transfer'){ cpUpdateInfo(); renderDeletedTransfers(); }
+  if(id==='transfer'){ cpUpdateInfo(); renderDeletedTransfers(); renderCardTransfers(); }
+  if(id==='card'){ periodYears('cs'); periodApply('cs'); }
+  if(id==='loan'){ cwUpdateInfo(); renderCcLoanList(); }
 }
 
 // BACKUP
@@ -3034,8 +3431,12 @@ window.onload = () => {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   document.getElementById('entDate').value = d;
   document.getElementById('bachatDate').value = d;
-  periodInit('list'); periodInit('rep');
-  periodApply('list', true); periodApply('rep', true);
+  periodInit('list'); periodInit('rep'); periodInit('cs');
+  periodApply('list', true); periodApply('rep', true); periodApply('cs', true);
+  const cwd=document.getElementById('cwDate'); if(cwd) cwd.value=d;
+  if(db.cwPref){ const m=document.getElementById('cwMode'), v=document.getElementById('cwChg'), mn=document.getElementById('cwMin');
+    if(m) m.value=db.cwPref.mode||'pct'; if(v&&db.cwPref.val) v.value=db.cwPref.val; if(mn&&db.cwPref.min) mn.value=db.cwPref.min; }
+  cwUpdateInfo(); renderCcExtras();
   switchEntryTab('javak');
   cleanupOldReminders();
   const cpd=document.getElementById('cpDate'); if(cpd) cpd.value=d;
